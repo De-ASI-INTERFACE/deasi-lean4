@@ -1,30 +1,127 @@
-name: Build and Docs
+name: DeASI — Build, Docs, and Deploy
+
+# Canonical project: DeASI
+# Author: Richard Arlie Charles Patterson
+# Copyright: © 2026 Richard Arlie Charles Patterson
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+# Explicit permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
+
+  # ============================================================
+  # Stage 1: Build and verify the main Lean project
+  # ============================================================
   build:
+    name: Build DeASI (lake build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Install Lean
-        uses: leanprover/lean4-action@v1
+      - name: Install elan (Lean version manager)
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Pin Lean toolchain
+        run: elan override set leanprover/lean4:stable
+
+      - name: Cache Lake packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan
+            .lake/packages
+          key: ${{ runner.os }}-lake-${{ hashFiles('lakefile.lean', 'lake-manifest.json') }}
+          restore-keys: |
+            ${{ runner.os }}-lake-
+
+      - name: Resolve and update Lake dependencies
+        run: lake update
 
       - name: Build main project
         run: lake build
+
+  # ============================================================
+  # Stage 2: Build documentation with doc-gen4
+  # ============================================================
+  docs:
+    name: Build DeASI Docs (lake build DeASI:docs)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install elan (Lean version manager)
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Pin Lean toolchain
+        run: elan override set leanprover/lean4:stable
+
+      - name: Cache Lake packages (docbuild)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan
+            .lake/packages
+            docbuild/.lake/packages
+          key: ${{ runner.os }}-docbuild-${{ hashFiles('docbuild/lakefile.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-docbuild-
+
+      - name: Resolve docbuild dependencies
+        run: |
+          cd docbuild
+          lake update
 
       - name: Build documentation
         run: |
           cd docbuild
           lake build DeASI:docs
 
-      - name: Upload docs artifact
+      - name: Upload docs artifact (deasi-docs)
         uses: actions/upload-artifact@v4
         with:
           name: deasi-docs
           path: docbuild/.lake/build/doc
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docbuild/.lake/build/doc
+
+  # ============================================================
+  # Stage 3: Deploy to GitHub Pages (main branch only)
+  # ============================================================
+  deploy:
+    name: Deploy DeASI Docs to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: docs
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
