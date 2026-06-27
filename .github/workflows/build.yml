@@ -1,0 +1,30 @@
+name: Build and Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Lean
+        uses: leanprover/lean4-action@v1
+
+      - name: Build main project
+        run: lake build
+
+      - name: Build documentation
+        run: |
+          cd docbuild
+          lake build DeASI:docs
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deasi-docs
+          path: docbuild/.lake/build/doc
