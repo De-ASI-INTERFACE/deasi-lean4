@@ -38,17 +38,16 @@ jobs:
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
 
-      - name: Pin Lean toolchain
-        run: elan override set leanprover/lean4:stable
-
-      - name: Cache Lake packages
+      # lean-toolchain governs the version — no manual override needed
+      - name: Cache elan and Lake packages
         uses: actions/cache@v4
         with:
           path: |
             ~/.elan
             .lake/packages
-          key: ${{ runner.os }}-lake-${{ hashFiles('lakefile.lean', 'lake-manifest.json') }}
+          key: ${{ runner.os }}-lake-${{ hashFiles('lean-toolchain', 'lakefile.lean') }}-${{ hashFiles('lake-manifest.json') }}
           restore-keys: |
+            ${{ runner.os }}-lake-${{ hashFiles('lean-toolchain', 'lakefile.lean') }}-
             ${{ runner.os }}-lake-
 
       - name: Resolve and update Lake dependencies
@@ -73,17 +72,14 @@ jobs:
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
 
-      - name: Pin Lean toolchain
-        run: elan override set leanprover/lean4:stable
-
-      - name: Cache Lake packages (docbuild)
+      - name: Cache elan and Lake packages (docbuild)
         uses: actions/cache@v4
         with:
           path: |
             ~/.elan
             .lake/packages
             docbuild/.lake/packages
-          key: ${{ runner.os }}-docbuild-${{ hashFiles('docbuild/lakefile.toml') }}
+          key: ${{ runner.os }}-docbuild-${{ hashFiles('lean-toolchain', 'docbuild/lakefile.toml') }}
           restore-keys: |
             ${{ runner.os }}-docbuild-
 
