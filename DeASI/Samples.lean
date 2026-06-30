@@ -22,7 +22,7 @@ and documentation output.
 import DeASI.Core
 
 set_option autoImplicit false
-set_option maxHeartbeats 0
+set_option maxHeartbeats 400000
 
 open scoped BigOperators
 
@@ -83,8 +83,8 @@ lemma sample_step_phase : (step sampleState).phase = true := by
   simp
 
 lemma sample_step_friction : (step sampleState).friction = false := by
-  unfold step sampleState nextFriction isFrictionZone
-  simp [samplePos, sampleVel, l1Norm]
+  unfold step sampleState nextFriction isFrictionZone l1Norm samplePos sampleVel
+  native_decide
 
 lemma sample_cost : cost sampleState = 3 := by
   unfold cost sampleState
