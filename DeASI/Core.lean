@@ -25,7 +25,7 @@ import Mathlib
 import Aesop
 
 set_option autoImplicit false
-set_option maxHeartbeats 0
+set_option maxHeartbeats 400000
 
 open scoped BigOperators
 
@@ -60,7 +60,8 @@ lemma l1Norm_nonneg {n : ℕ} (v : Vec n) : 0 ≤ (l1Norm v : ℚ) := by
 
 lemma stepMag_nonneg {n : ℕ} (v : Vec n) : 0 ≤ stepMag v := by
   unfold stepMag
-  positivity [l1Norm_nonneg (v := v)]
+  have h := l1Norm_nonneg v
+  positivity
 
 lemma stepMag_zero_of_zero {n : ℕ} (v : Vec n) (h : ∀ i, v i = 0) : stepMag v = 0 := by
   unfold stepMag l1Norm
@@ -159,15 +160,15 @@ lemma friction_nonneg (b : Bool) : 0 ≤ (if b then (1 : ℚ) else 0) := by
 lemma cost_nonneg {n : ℕ} (s : State n) : 0 ≤ cost s := by
   unfold cost
   have hmul : 0 ≤ s.weight * stepMag s.vel := by
-    positivity [State.weight_nonneg s, stepMag_nonneg (v := s.vel)]
+    apply mul_nonneg s.weight_nonneg (stepMag_nonneg s.vel)
   have hfr : 0 ≤ (if s.friction then (1 : ℚ) else 0) := friction_nonneg s.friction
-  nlinarith
+  linarith
 
 lemma cost_lower_bound {n : ℕ} (s : State n) :
     (if s.friction then (1 : ℚ) else 0) ≤ cost s := by
   unfold cost
-  have hmul : 0 ≤ s.weight * stepMag s.vel := by
-    positivity [State.weight_nonneg s, stepMag_nonneg (v := s.vel)]
+  have hmul : 0 ≤ s.weight * stepMag s.vel :=
+    mul_nonneg s.weight_nonneg (stepMag_nonneg s.vel)
   by_cases hfr : s.friction
   · simp [hfr, hmul]
   · simp [hfr, hmul]
@@ -178,10 +179,8 @@ lemma cost_well_defined {n : ℕ} (s : State n) : ∃ c : ℚ, cost s = c :=
 lemma cost_ge_weight_mul_stepMag {n : ℕ} (s : State n) :
     s.weight * stepMag s.vel ≤ cost s := by
   unfold cost
-  by_cases hfr : s.friction
-  · simp [hfr]
-  · simp [hfr]
-    positivity [State.weight_nonneg s, stepMag_nonneg (v := s.vel)]
+  have hfr : 0 ≤ (if s.friction then (1 : ℚ) else 0) := friction_nonneg s.friction
+  linarith
 
 end CostFunction
 
